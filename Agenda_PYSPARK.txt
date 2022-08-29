@@ -1,0 +1,330 @@
+PySpark:
+
+----------*-----------*----------*-------------
+1) Introduction to spark and it's ecosystem
+2) Spark execution
+3) RDD fundamentals
+4) Spark transformations and actions
+5) Spark SQL
+6) Dataframes in spark
+7) Reading data from different sources
+8) Temp Tables
+9) Hive integration
+----------*------------*----------*-------------
+
+1) Introduction to spark and it's ecosystem
+
+2009 -> AMPLamp -> University of berkley
+MESOS -> Similar to YARN
+To test MESOS with other framework -> Spark
+In memory execution -> Power of Spark
+In 2012 -> Spark became an Apache project
+Now spark is the famous Apache project
+In Apache 300+ projects -> No1 is spark
+
+Latest Version -> Spark 3.1.1 -> Mar 02, 2021
+Spark -> Scheduling, Monitoring and Distributing
+Spark can use both Hard disk and RAM
+To make use of spark functioalities -> python or Java or Scala or R
+When you download spark, you will get Spark core
+SQL, streaming, MLlib, GraphX -> libraries
+
+Spark SQL Integrated with Hive by default
+Now a days-> Hive used as storage and processing done by Spark SQL
+Spark has no storage - It is a execution engine
+
+2) Spark execution:
+-> jupyter notebook (skip)
+Cluster mode of execution:
+-> pyspark prompt
+-> using spark submit
+
+Demo:
+a = sc.parallelize(range(1,10))    #input-->collection, output-->rdd
+a.collect()
+a.getNumPartitions()
+
+b= sc.parallelize(range(1,100), 10) -> num of partitions -> 10
+
+from pyspark.context import SparkContext
+sc= SparkContext()
+a= sc.parallelize(range(1,100))
+a.collect()
+a.saveAsTextFile('hdfs://crsdetarh14:9000/user/LabOnCloud/vigneshexp/Intro1.txt')
+
+
+3) RDD Fundamentals:
+
+-> Resilient Distributed Dataset
+-> Like a variable
+-> Building block of any spark application
+-> First step you will create RDD
+
+-> Any data will be represented as RDD in spark core
+
+RDD helps in Partitions
+Partitions -> Send to executor
+Executors process the partitions not the files
+More the partitions -> More the parallelism
+An executor can handle more than one partitions as well
+one million rows from cassandra -> directly to one exector -> less speed
+
+4) Spark transformations and actions
+
+RDD is immutable -> Once you create it, you can't change it.
+You can only transform it to new RDD
+If you apply transformations on one RDD, it will create new RDD 
+
+Unless you call any action -> Nothing will happen as output
+collect function -> Action (.collect()--> action)
+Once processing is done -> Everything will be deleted from memory
+
+RDD helps to achieve fault tolerance through lineage
+RDD - No strict schema - Unless you run - No idea will get
+Optimizing will be difficult especially for structured data - like csv
+
+Demo:
+a= sc.parallelize(range(1,100))
+a.collect()
+a.getNumPartitions()
+
+Parallelize will convert any existing collection to RDD
+In order to access spark libraries, we need to use sc
+By default, RDD actions - result in Array
+map function will apply function to all the elements in the RDD
+
+5) Spark SQL
+
+More powerful and optimized than RDD
+Spark Module for process structured data
+From Spark version 2-> Spark session(spark) used
+spark.something -> means u are using spark session
+DataFrame -> row column structure
+Dataframe can be registered as a table
+Then you can write a SQL
+
+6) Dataframes in spark
+
+Always suggested to use dataframe than RDD
+Better performance from spark 2.2+
+Spark is RDD-> Everything is a layer on top of it like dataframe.
+Dataframe will get converted internally to RDD
+any source -> dataframe
+from csv, rdd, xml, json, parquet, rdbms table you can create a dataframe
+in version 1 -> sqlcontext, hivecontext
+in version 2 -> spark session
+
+
+DEMOS:
+
+DEMO0: pyspark prompt (shell mode)
+a= sc.parallelize(range(1,100))
+a.collect()
+a.getNumPartitions()
+
+
+DEMO1:Reading a text file from hdfs and storing it as Parquet file(Parquet file viewer):-
+~] cat > demo1__1_.txt
+Vignesh,1
+Ganesh,2
+Ashwin,3
+Veera,4
+Deepan,5
+ctrl+c
+~] hadoop fs -put demo1__1_.txt /user/LabOnCloud/vigneshexp
+~] cat > demo_one_1_.py
+from pyspark import SparkContext
+from pyspark.sql import Row
+from pyspark.sql import SQLContext
+sc = SparkContext.getOrCreate();
+sqlContext = SQLContext(sc)
+rdd = sc.textFile("hdfs://crsdetarh14:9000/user/LabOnCloud/vigneshexp/demo1__1_.txt")
+
+rdd1 = rdd.map(lambda r:r.split(","))
+ppl = rdd1.map(lambda x: Row(name=x[0], studentid=int(x[1]))) 
+
+DF = sqlContext.createDataFrame(ppl)
+DF.write.parquet("hdfs://crsdetarh14:9000/user/LabOnCloud/vigneshexp/demo1_par1_1_")
+ctrl+c
+~] spark-submit --master local --conf spark.ui.port=50599 demo_one_1_.py
+
+
+spark: processing engine
+by default:data warehouse-->hive
+
+
+DEMO2:Reading a Parquet File on HDFS and loading it to a Hive table:
+cat > demo2_two_2_.py
+from pyspark.context import SparkContext
+import sys
+sc= SparkContext()
+from pyspark.sql import HiveContext, SparkSession
+spark = SparkSession.builder.enableHiveSupport().master("yarn").getOrCreate()
+DF1 = spark.read.parquet("hdfs://crsdetarh14:9000/user/LabOnCloud/vigneshexp/demo1_par1_1_")
+DF1.write.saveAsTable("vigneshdemo.demo2_table2_2__")
+ctl+c
+
+~] spark-submit --master local --conf spark.ui.port=50599 demo2_two_2_.py
+
+
+
+
+
+DEMO3:Reading a text file as a CSV & displaying it as a DF:
+cat > demo3_three_3.py
+from pyspark.context import SparkContext
+import sys
+sc= SparkContext()
+from pyspark.sql import HiveContext, SparkSession
+spark = SparkSession.builder.enableHiveSupport().master("yarn").getOrCreate()
+from pyspark.sql.types import *
+from pyspark.sql.functions import *
+
+rt_schema = [StructField('COL1',StringType(),True),
+                 StructField('COL2',IntegerType(),True)]
+
+rt_struct = StructType(fields=rt_schema)
+df = spark.read.format("csv").option("header","false").option("delimiter",",").schema(rt_struct).load("hdfs://crsdetarh14:9000/user/LabOnCloud/vigneshexp/demo1__1.txt")
+df.printSchema()
+df.show()
+clt+c
+~] spark-submit --master local --conf spark.ui.port=50599 demo3_three_3.py
+
+
+
+
+DEMO4:Temp Tables
+Reading a parquet file--> Temp Table-->View it using spark sql
+
+cat > demo4_four4.py
+from pyspark.context import SparkContext
+import sys
+sc= SparkContext()
+from pyspark.sql import HiveContext, SparkSession
+spark = SparkSession.builder.enableHiveSupport().master("yarn").getOrCreate()
+from pyspark.sql.types import *
+from pyspark.sql.functions import *
+
+parquetFile = spark.read.parquet("hdfs://crsdetarh14:9000/user/LabOnCloud/vigneshexp/demo1_par")
+parquetFile.createOrReplaceTempView("temp_table")
+df1 = spark.sql("SELECT * FROM temp_table")
+df1.show()
+Df2 =spark.sql("SELECT * FROM temp_table where studentid=1")
+Df2.show()
+
+~] spark-submit --master local --conf spark.ui.port=50599 demo4_four4.py
+
+
+
+
+
+DEMO5:Hive integration:
+Reading from Hive tables to dataframes, joining, selecting required fields 
+cat > demo5_five.py
+from pyspark.context import SparkContext
+import sys
+sc= SparkContext()
+from pyspark.sql import HiveContext, SparkSession
+spark = SparkSession.builder.enableHiveSupport().master("yarn").getOrCreate()
+from pyspark.sql.types import *
+from pyspark.sql.functions import *
+
+df1 = spark.sql("select * from vigneshdemo.student_marks")
+df2 = spark.sql("select * from vigneshdemo.student_names")
+join_df = df1.join(df2, on='id', how='inner')
+join_df.write.mode("overwrite").saveAsTable("vigneshdemo.joined_df_FIVE")
+
+spark-submit --master local --conf spark.ui.port=50599 demo5_five.py
+
+
+
+
+
+
+DEMO6:Applying required filter to the DataFrame:
+cat > demo6.py
+from pyspark.context import SparkContext
+import sys
+sc= SparkContext()
+from pyspark.sql import HiveContext, SparkSession
+spark = SparkSession.builder.enableHiveSupport().master("yarn").getOrCreate()
+from pyspark.sql.types import *
+from pyspark.sql.functions import *
+
+df = sc.parallelize([
+    ("orange", "apple"), ("kiwi", None), (None, "banana"), 
+    ("mango", "mango"), (None, None)
+]).toDF(["fruit1", "fruit2"])
+df.show()
+new_df = df.withColumn('Newcol', when(col("fruit1")=="mango","Hello").otherwise("Bye"))
+new_df.show()
+
+spark-submit --master local --conf spark.ui.port=50599 demo6.py
+
+
+
+DEMO7:Type Casting: one data type to other data type of a column
+cat > demo7_7.py
+from pyspark.context import SparkContext
+import sys
+sc= SparkContext()
+from pyspark.sql import HiveContext, SparkSession
+spark = SparkSession.builder.enableHiveSupport().master("yarn").getOrCreate()
+from pyspark.sql.types import *
+from pyspark.sql.functions import *
+
+df1 = spark.sql("select * from vigneshdemo.student_marks")
+df2 = spark.sql("select * from vigneshdemo.student_names")
+df1.printSchema()
+join_df = df1.join(df2,df1.id==df2.id).select(df1.id,
+                 df1.marks,  df2.name)
+join_df2 = join_df.withColumn("employeeId",col("id").cast(StringType()))
+join_df2.printSchema()
+join_df2.show()
+
+spark-submit --master local --conf spark.ui.port=50599 demo7_7.py
+
+
+
+DEMO8:Aggregate functions - avg, min, max, sum on dataframes 
+cat > demo8.py
+from pyspark.context import SparkContext
+import sys
+sc= SparkContext()
+from pyspark.sql import HiveContext, SparkSession
+spark = SparkSession.builder.enableHiveSupport().master("yarn").getOrCreate()
+from pyspark.sql.types import *
+from pyspark.sql.functions import *
+
+df = spark.sql("select * from vigneshdemo.student_marks")  
+df1 =df.select(avg("marks")) 
+df1.show()
+df2 =df.select(min("marks")) 
+df2.show()
+df3 =df.select(max("marks")) 
+df3.show()
+df4 =df.select(sum("marks")) 
+df4.show()
+spark-submit --master local --conf spark.ui.port=50599 demo8.py
+
+
+
+
+DEMO9:Example for Filtering:
+cat > demo99.py
+from pyspark.context import SparkContext
+import sys
+sc= SparkContext()
+from pyspark.sql import HiveContext, SparkSession
+spark = SparkSession.builder.enableHiveSupport().master("yarn").getOrCreate()
+from pyspark.sql.types import *
+from pyspark.sql.functions import *
+
+df1 = spark.sql("select * from vigneshdemo.student_marks")
+df2 = spark.sql("select * from vigneshdemo.student_names")
+df3 = df1.groupby('id').count() 
+df3.show()
+sql_df = spark.sql("select * from vigneshdemo.student_marks where marks>85")
+sql_df.show()
+
+spark-submit --master local --conf spark.ui.port=50599 demo99.py
